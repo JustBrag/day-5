@@ -1,0 +1,536 @@
+RIVAN CCNA DAY 5	
+
+1. a:c::/64
+2. ::/0
+3. fe80::a:0:0:f/64
+4. 2002:6500:0:3000::/64
+5. ::1/128 [IPV6 loopback]
+6. ff00:0:0:beef:a00a:aa0::/8
+7. 2001:db8:1::ab9:C0A8:102/64
+8. 1200:0:130F::9C0:876A:100B/64
+9. 2041:1000:140F::0:875B:1B/96
+10. 2001:4860:4860::0:0:8888/128 [Google IPv6 DNS] 
+
+IPv6 Subnetting:
+Design the Accenture Network using fafa:cafe:fafa:fefe::/64 to 50 offices. 
+each digit is equivalent to /4.
+
+RIVAN Method CAI
+C- convert 50 offices
+A- /64 + /6 (6 bits) = /70
+I- IChambaMoPattern: or Ipasok (Hextet, HexDigit, increment)
+
+/70 = (5th Hextet, 2nd Hexdigit, 4i)
+
+1st Office: fafa:cafe:fafa:fefe::/70
+2nd Office: fafa:cafe:fafa:fefe:0400::/70
+3rd Office: fafa:cafe:fafa:fefe:0800::/70
+4th Office: fafa:cafe:fafa:fefe:0c00::/70 
+5th Office: fafa:cafe:fafa:fefe:1000::/70 
+6th Office: fafa:cafe:fafa:fefe:1400::/70 
+7th Office: fafa:cafe:fafa:fefe:1800::/70
+8th Office: fafa:cafe:fafa:fefe:1c00::/70 
+
+IMPLEMENT:
+conf t
+ipv6 unicast-routing
+int lo101
+ipv6 add fafa:cafe:fafa:fefe::1/70
+int lo102
+ipv6 add fafa:cafe:fafa:fefe:0400::1/70
+int lo103
+ipv6 add fafa:cafe:fafa:fefe:0800::1/70
+int lo104
+ipv6 add fafa:cafe:fafa:fefe:0c00::1/70
+end
+
+EXERCISE/HOMEWORK: 
+Design an IPv6 Network with abcd:babe:fade:f0f0::/64 to 22 offices.
+
+
+CISCO SWITCHING:
+show flash - displays firmware
+
+@CORETAAS 
+conf t
+int range fa0/1-12
+switchport mode access 
+switchport access vlan 123
+end 
+
+
+show vlan brief
+
+conf t
+no vlan 123
+end
+
+"orphan ports"
+-In Cisco vPC, an orphan port is any interface that is not part of a vPC and is connected to only one of the vPC peer switches; during a peer‑link failure, these ports may become isolated or shut down depending on configuration.
+
+conf t
+vlan 123
+name testvlan
+int range fa0/1-12
+switchport mode access 
+switchport access vlan 1
+end
+
+the 802.1 powers of Cisco Switches
+-802.1q (Dynamic Trunking Port)
+-802.1d (Spanning-Tree)
+-802.1q (Rapid STP)
+-802.1x (Port-Security)
+-802.1s (Multiple Instance STP)
+
+802.1q- Dynamic Trunking Port
+
+TRUNK- switch to switch  devices (ALL VLANS are propagated) 
+ACCESS- we connects end devices to access ports
+
+
+!Convert to trunk ports:
+@coretaas/baba
+conf t
+int range fa0/10-12
+no shut
+switchport trunk encapsulation dot1q
+switchport mode trunk
+end
+(turns the amber light on) 
+
+
+802.1D- SPANNING-TREE PROTOCOL (prevents looping and broadcast storm)
+
+sh spanning-tree vlan 1
+
+we connected port 7 to port 3 where the stp blocks the other port while the other (fa0/1 is assigned as designated)
+
+
+ping 10.71.1.2 -t (were pinging core taas)
+blinking light means it functions normally.
+
+conf t
+spanning-tree vlan 1-100
+(broadcast storm happens)   
+15 secs for listening
+15 secs for learning
+in 30 secs, the port is already in forwarding state.
+
+!Make CoreTaas as ROOTBRIDGE
+@coretaas
+conf t
+spanning-tree vlan 1-100 root primary
+end
+
+@corebaba
+conf t
+spanning-tree vlan 1-100 root secondary
+end
+
+802.1w - Rapid STP
+@RootBridge(Coretaas) 
+conf t
+spanning-tree mode Rapid-pvst
+spanning-tree backbonefast 
+spanning-tree portfast bpduguard default
+int range fa0/1-8
+spanning-tree postfast 
+end
+
+@Non-RootBridge(corebaba)
+conf t
+spanning-tree mode Rapid-pvst
+spanning-tree uplinkfast 
+spanning-tree portfast bpduguard default
+int range fa0/1-8
+spanning-tree portfast 
+end
+
+sh int status err-disabled (show port in amber even when theres no connection) 
+Port      Name               Status       Reason               Err-disabled Vlans
+Fa0/3                        err-disabled bpduguard
+Fa0/7                        err-disabled bpduguard
+
+to undo:
+conf t
+int range fa0/3, fa0/7
+shut
+no shut
+end
+
+802.1S - Multi Instance STP
+"show spanning-tree mst configuration"
+(displays Instances and Vlans mapped)
+step 1:create VTP (VLAN Trunking Protocol)
+@both switch
+conf t
+vtp domain ccna
+vtp password pass
+vtp mode server
+vtp version 2
+end
+step 2: organize vlans
+@coreTaas
+conf t
+vlan 11-19
+exit
+vlan 21-29
+exit
+vlan 31-39
+end
+
+@coreBABA
+!enable MSTP
+conf t
+spanning-tree mode mst
+spanning-tree mst configuration
+name supermanstp
+revision 1
+instance  1 vlan 11-19
+instance  2 vlan 21-29
+instance  3 vlan 31-39
+end 
+
+sh spanning-tree mst config
+
+!reset the root primary/secondary roles
+
+@Rootbridge (coretaas)
+conf t
+spanning-tree mst 0 root primary
+spanning-tree mst 1 root secondary
+spanning-tree mst 2 root primary
+spanning-tree mst 3 root secondary
+end
+
+@Non-Rootbridge
+conf t
+spanning-tree mst 0 root secondary
+spanning-tree mst 1 root primary
+spanning-tree mst 2 root secondary
+spanning-tree mst 3 root primary
+end
+
+802.1x - Port Security
+(setting security on device's mac address) 
+
+
+@CoreBaba 
+conf t
+int f0/6
+switchport port-security
+switchport port-security mac-address sticky
+switchport port-security maximum 1
+switchport port-security violation shutdown
+int f0/8
+switchport port-security
+switchport port-security mac-address sticky
+switchport port-security maximum 1
+switchport port-security violation shutdown
+end
+
+
+sh port-security address
+-displays the mac address last written in that port being unplugged
+
+             Secure Mac Address Table
+-----------------------------------------------------------------------------
+Vlan    Mac Address       Type                          Ports   Remaining Age
+                                                                   (mins)    
+----    -----------       ----                          -----   -------------
+  50    001a.0704.7f67    SecureSticky                  Fa0/6        -
+-----------------------------------------------------------------------------
+Total Addresses in System (excluding one mac per port)     : 0
+Max Addresses limit in System (excluding one mac per port) : 6144
+
+!re-activate port
+
+conf t
+int range fa0/6, fa0/8
+shut 
+no shut
+end
+
+@CoreBABA
+int f0/6
+switchport port-security
+switchport port-security mac-address sticky
+switchport port-security maximum 1
+switchport port-security violation restrict
+int f0/8
+switchport port-security
+switchport port-security mac-address sticky
+switchport port-security maximum 1
+switchport port-security violation restrict
+end
+
+to check
+"show standby"
+
+@Both Switch
+conf t
+int range fa0/10-12
+channel-group 1 mode active 
+channel-protocol lacp
+end
+
+"show etherchannel summary"
+"show int po1 | inc BW"
+
+HSRP - Hot Standby Routing Protocol
+we use virtual IP for the end host's gateway address instead of the router's ip address. 
+
+@Coretaas 
+conf t
+hostname coretaasPLDT
+track 1 int g0/1 line-protocol
+int vlan 1
+standby 1 ip 10.71.1.6
+standby 1 preempt 
+standby 1 priority 150
+standby 1 track 1 decrement 60
+end
+
+!@Corebaba (Globe)
+conf t
+hostname corebabaGlobe
+int vlan 1
+standby 1 ip 10.71.1.6
+standby 1 preempt
+standby 1 priority 100
+standby 1 track 1 decrement 60
+end
+
+RSTHAYUP Etherchannel
+!@C1
+!C1-C2
+conf t
+int range e1/2-3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 30 mode active
+channel-protocol lacp
+
+
+!C1-A1
+conf t
+int range e0/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 10 mode active
+channel-protocol lacp
+
+
+!C1-A2
+conf t
+int range e0/0, e0/3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 15 mode active
+channel-protocol lacp
+end
+
+!@C2
+!C2-C1
+conf t
+int range e1/2-3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 30 mode active
+channel-protocol lacp
+
+!C2-A1
+int range e0/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 15 mode active
+channel-protocol lacp
+
+!C2-A2
+int range e0/0, e0/3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 25 mode active
+channel-protocol lacp
+end
+
+" "
+
+!@A1
+!A1-C1
+conf t
+int range e0/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 10 mode active
+channel-protocol lacp
+
+!A1-C2
+int range e0/3, e1/0
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 15 mode active
+channel-protocol lacp
+end
+
+!@A2
+!A2-C1
+conf t
+int range e0/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 20 mode active
+channel-protocol lacp
+
+!A2-C2
+int range e0/0, e0/3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 25 mode active
+channel-protocol lacp
+end
+
+
+
+
+
+3tier network architecture in RSTHAYUP:
+@C1 
+!C1-C2
+conf t 
+int range e0/1-3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 40 mode active
+channel-protocol lacp
+
+!C1-D2
+int range e1/0, e1/3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 12 mode active
+channel-protocol lacp
+
+!C1-D1
+int range e1/0, e1/3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 11 mode active
+channel-protocol lacp
+
+
+!@C2-C1
+conf t 
+int range e0/1-3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 40 mode active
+channel-protocol lacp
+
+!C2-D2
+int range e2/0, e2/3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 22 mode active
+channel-protocol lacp
+
+!C2-D1
+int range e2/0, e2/3
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 21 mode active
+channel-protocol lacp
+
+
+!@D2-C1
+conf t 
+int range e2/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 12 mode active
+channel-protocol lacp
+
+!D2-C2
+int range e2/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 22 mode active
+channel-protocol lacp
+
+!@D1-C1
+conf t 
+int range e1/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 11 mode active
+channel-protocol lacp
+
+!D1-C2
+int range e1/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 21 mode active
+channel-protocol lacp
+
+!@@D1-A1 
+**   **
+
+!D1-A2 
+int range e1/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 42 mode active
+channel-protocol lacp
+
+!D1-A3 
+int range e1/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 43 mode active
+channel-protocol lacp
+
+!@@D2-A1
+conf t
+int range e1/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 44 mode active
+channel-protocol lacp
+
+!D2-A2
+** **
+
+!D2-A3
+int range e3/1-2
+switchport trunk encap dot1q
+switchport mode trunk
+switchport trunk allowed vlan 1-100
+channel-group 46 mode active
+channel-protocol lacp
+
+
+
