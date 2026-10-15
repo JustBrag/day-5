@@ -79,7 +79,7 @@ end
 the 802.1 powers of Cisco Switches
 -802.1q (Dynamic Trunking Port)
 -802.1d (Spanning-Tree)
--802.1q (Rapid STP)
+-802.1w (Rapid STP)
 -802.1x (Port-Security)
 -802.1s (Multiple Instance STP)
 
